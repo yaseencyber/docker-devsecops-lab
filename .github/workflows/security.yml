@@ -10,13 +10,10 @@ on:
       - main
 
 jobs:
-
   docker-security:
-
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout Code
         uses: actions/checkout@v4
 
@@ -27,6 +24,7 @@ jobs:
 
       - name: Run Gitleaks
         uses: gitleaks/gitleaks-action@v2
-              - name: Build Docker Image
+
+      - name: Build Docker Image
         run: |
           docker build -t docker-devsecops-lab:latest .
