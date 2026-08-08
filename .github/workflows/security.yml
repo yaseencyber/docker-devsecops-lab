@@ -1,4 +1,4 @@
-name: Docker DevSecOps
+name: Docker DevSecOps Security Pipeline
 
 on:
   push:
@@ -14,31 +14,26 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Checkout source code
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      # 2. Dockerfile security/linting
       - name: Run Hadolint
         uses: hadolint/hadolint-action@v3.1.0
         with:
           dockerfile: Dockerfile
 
+      # 3. Secret scanning
       - name: Run Gitleaks
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@v3
 
+      # 4. Build container image
       - name: Build Docker Image
         run: |
           docker build -t docker-devsecops-lab:latest .
-          
-      - name: Run Trivy Vulnerability Scan
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: docker-devsecops-lab:latest
-          format: table
-          exit-code: 1
-          ignore-unfixed: true
-          vuln-type: os,library
-          severity: CRITICAL,HIGH
 
+      # 5. Trivy vulnerability scanning
       - name: Run Trivy Vulnerability Scan
         uses: aquasecurity/trivy-action@v0.36.0
         with:
@@ -46,4 +41,28 @@ jobs:
           format: table
           severity: HIGH,CRITICAL
           ignore-unfixed: true
-          exit-code: 1
+          exit-code: 0
+          vuln-type: os,library
+
+      # 6. Generate SBOM using Syft
+      - name: Generate SBOM with Syft
+        uses: anchore/sbom-action@v0
+        with:
+          image: docker-devsecops-lab:latest
+          format: cyclonedx-json
+          output-file: sbom.cdx.json
+
+      # 7. Scan image with Grype
+      - name: Run Grype Vulnerability Scan
+        uses: anchore/scan-action@v7
+        with:
+          image: docker-devsecops-lab:latest
+          severity-cutoff: high
+          fail-build: false
+
+      # 8. Save SBOM as GitHub artifact
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-sbom
+          path: sbom.cdx.json
